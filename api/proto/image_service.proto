@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package api.v1;
+
+import 'google/protobuf/empty.proto';
+
+service ImageService {
+    rpc UploadImage (ImageBatch) returns (UploadResponse);
+    rpc ListImages (google.protobuf.Empty) returns (ImageList);
+    rpc DownloadImage (ImageRequest) returns (ImageBatch);
+}
+
+message ImageData {
+    string filename = 1;
+    bytes data = 2;
+}
+
+message ImageBatch {
+    repeated ImageData images = 1;
+}
+
+message ImageInfo {
+    string filename = 1;    //имя файла
+    string created_at = 2;  //дата создания
+    string updated_at = 3;  //дата обновления
+}
+
+message ImageList {
+    repeated ImageInfo images = 1;
+}
+
+message ImageRequest {
+    repeated string filenames = 1;
+}
+
+message UploadResponse {
+    bool success = 1;
+    string info = 2;
+}
