@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	pb "grpc-image-service/api/gen/image_service"
 	"log"
@@ -16,11 +17,24 @@ import (
 
 const storageDir = "../../storage"
 
+var (
+	uploadDownloadMax = make(chan struct{}, 10)
+	listMax           = make(chan struct{}, 100)
+)
+
 type ImageServer struct {
 	pb.UnimplementedImageServiceServer
 }
 
 func (s *ImageServer) UploadImage(ctx context.Context, req *pb.ImageBatch) (*pb.UploadResponse, error) {
+	select {
+	case uploadDownloadMax <- struct{}{}:
+		defer func() { <-uploadDownloadMax }()
+	default:
+		err := errors.New("Слишком много запросов, попробуйте позже")
+		fmt.Println(err)
+		return nil, err
+	}
 	if len(req.Images) == 0 {
 		return &pb.UploadResponse{Success: false, Info: "Нет файлов для загрузки"}, nil
 	}
@@ -40,6 +54,14 @@ func (s *ImageServer) ListImages(ctx context.Context, _ *emptypb.Empty) (*pb.Ima
 	if err != nil {
 		return nil, err
 	}
+	select {
+	case listMax <- struct{}{}:
+		defer func() { <-listMax }()
+	default:
+		err := errors.New("Слишком много запросов, попробуйте позже")
+		fmt.Println(err)
+		return nil, err
+	}
 	var images []*pb.ImageInfo
 	now := time.Now().Format("2006-01-02 15:04:05")
 	for _, file := range files {
@@ -53,6 +75,14 @@ func (s *ImageServer) ListImages(ctx context.Context, _ *emptypb.Empty) (*pb.Ima
 }
 
 func (s *ImageServer) DownloadImage(ctx context.Context, req *pb.ImageRequest) (*pb.ImageBatch, error) {
+	select {
+	case uploadDownloadMax <- struct{}{}:
+		defer func() { <-uploadDownloadMax }()
+	default:
+		err := errors.New("Слишком много запросов, попробуйте позже")
+		fmt.Println(err)
+		return nil, err
+	}
 	if len(req.Filenames) == 0 {
 		return &pb.ImageBatch{}, nil
 	}

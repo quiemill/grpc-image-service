@@ -10,12 +10,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+var wg sync.WaitGroup
+
 func uploadImage(client pb.ImageServiceClient) {
+	defer wg.Done()
 	fmt.Print("Введите пути к изображениям через запятую: ")
 	reader := bufio.NewReader(os.Stdin)
 	input, _ := reader.ReadString('\n')
@@ -53,6 +57,7 @@ func uploadImage(client pb.ImageServiceClient) {
 }
 
 func listImages(client pb.ImageServiceClient) {
+	defer wg.Done()
 	resp, err := client.ListImages(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		fmt.Println("Ошибка получения списка изображений:", err)
@@ -65,6 +70,7 @@ func listImages(client pb.ImageServiceClient) {
 }
 
 func downloadImage(client pb.ImageServiceClient) {
+	defer wg.Done()
 	fmt.Print("Введите имя файла для скачивания: ")
 	var filename string
 	fmt.Scanln(&filename)
@@ -86,6 +92,7 @@ func main() {
 	defer conn.Close()
 
 	client := pb.NewImageServiceClient(conn)
+
 	for {
 		fmt.Println("\nВыберите действие:")
 		fmt.Println("1.Загрузить изображения")
@@ -100,12 +107,16 @@ func main() {
 
 		switch ch {
 		case "1":
-			uploadImage(client)
+			wg.Add(1)
+			go uploadImage(client)
 		case "2":
-			listImages(client)
+			wg.Add(1)
+			go listImages(client)
 		case "3":
-			downloadImage(client)
+			wg.Add(1)
+			go downloadImage(client)
 		case "4":
+			wg.Wait()
 			fmt.Println("Завершение работы")
 			return
 		default:
