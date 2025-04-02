@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	pb "grpc-image-service/api/gen/image_service"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,32 +17,39 @@ import (
 
 func uploadImage(client pb.ImageServiceClient) {
 	fmt.Print("Введите пути к изображениям через запятую: ")
-	var input string
-	fmt.Scanln(&input)
-	paths := strings.Split(input, ",")
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	paths := strings.Split(strings.TrimSpace(input), ",")
 	var images []*pb.ImageData
 	for _, path := range paths {
 		path = strings.TrimSpace(path)
-		data, err := os.ReadFile(path)
+		filename := filepath.Base(path)
+		file, err := os.Open(path)
 		if err != nil {
-			fmt.Println("Ошибка чтения файла:", path, err)
+			fmt.Printf("Ошибка открытия файла %s: %v\n", path, err)
+			continue
+		}
+		defer file.Close()
+		data, err := io.ReadAll(file)
+		if err != nil {
+			fmt.Printf("Ошибка чтения файла %s: %v\n", path, err)
 			continue
 		}
 		images = append(images, &pb.ImageData{
-			Filename: filepath.Base(path),
+			Filename: filename,
 			Data:     data,
 		})
 	}
 	if len(images) == 0 {
-		fmt.Println("Нет файлов для загрузки")
+		fmt.Println("Нет файлов для загрузки.")
 		return
 	}
 	resp, err := client.UploadImage(context.Background(), &pb.ImageBatch{Images: images})
 	if err != nil {
-		fmt.Println("Ошибка при загрузке:", err)
+		fmt.Println("Ошибка загрузки изображений:", err)
 		return
 	}
-	fmt.Println("Файлы загружены:", resp.Info)
+	fmt.Println("Результат загрузки:", resp.Info)
 }
 
 func listImages(client pb.ImageServiceClient) {
@@ -57,7 +65,17 @@ func listImages(client pb.ImageServiceClient) {
 }
 
 func downloadImage(client pb.ImageServiceClient) {
-	fmt.Print("Функция downloadImage ")
+	fmt.Print("Введите имя файла для скачивания: ")
+	var filename string
+	fmt.Scanln(&filename)
+	resp, err := client.DownloadImage(context.Background(), &pb.ImageRequest{Filenames: []string{filename}})
+	if err != nil || len(resp.Images) == 0 {
+		fmt.Println("Файл не найден")
+		return
+	}
+	image := resp.Images[0]
+	os.WriteFile("downloaded_"+image.Filename, image.Data, 0644)
+	fmt.Println("Скачано:", image.Filename)
 }
 
 func main() {
