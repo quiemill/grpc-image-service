@@ -8,8 +8,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const storageDir = "../../storage"
@@ -31,6 +33,23 @@ func (s *ImageServer) UploadImage(ctx context.Context, req *pb.ImageBatch) (*pb.
 		}
 	}
 	return &pb.UploadResponse{Success: true, Info: "Файлы загружены"}, nil
+}
+
+func (s *ImageServer) ListImages(ctx context.Context, _ *emptypb.Empty) (*pb.ImageList, error) {
+	files, err := os.ReadDir(storageDir)
+	if err != nil {
+		return nil, err
+	}
+	var images []*pb.ImageInfo
+	now := time.Now().Format("2006-01-02 15:04:05")
+	for _, file := range files {
+		images = append(images, &pb.ImageInfo{
+			Filename:  file.Name(),
+			CreatedAt: now,
+			UpdatedAt: now,
+		})
+	}
+	return &pb.ImageList{Images: images}, nil
 }
 
 func main() {

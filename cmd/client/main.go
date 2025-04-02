@@ -7,25 +7,18 @@ import (
 	pb "grpc-image-service/api/gen/image_service"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func uploadImage(client pb.ImageServiceClient) {
-	fmt.Println("Введите пути к изображениям через запятую:")
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Ошибка чтения ввода:", err)
-		return
-	}
-	input = strings.TrimSpace(input)
+	fmt.Print("Введите пути к изображениям через запятую: ")
+	var input string
+	fmt.Scanln(&input)
 	paths := strings.Split(input, ",")
-	if len(paths) == 0 {
-		fmt.Println("Не указаны файлы для загрузки.")
-		return
-	}
 	var images []*pb.ImageData
 	for _, path := range paths {
 		path = strings.TrimSpace(path)
@@ -34,22 +27,33 @@ func uploadImage(client pb.ImageServiceClient) {
 			fmt.Println("Ошибка чтения файла:", path, err)
 			continue
 		}
-		image := &pb.ImageData{
-			Filename: path,
+		images = append(images, &pb.ImageData{
+			Filename: filepath.Base(path),
 			Data:     data,
-		}
-		images = append(images, image)
+		})
+	}
+	if len(images) == 0 {
+		fmt.Println("Нет файлов для загрузки")
+		return
 	}
 	resp, err := client.UploadImage(context.Background(), &pb.ImageBatch{Images: images})
 	if err != nil {
-		fmt.Println("Ошибка при загрузке файлов:", err)
+		fmt.Println("Ошибка при загрузке:", err)
 		return
 	}
-	fmt.Println("Файлы загружены. Ответ сервера:", resp.Info)
+	fmt.Println("Файлы загружены:", resp.Info)
 }
 
 func listImages(client pb.ImageServiceClient) {
-	fmt.Print("Функция listImages")
+	resp, err := client.ListImages(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		fmt.Println("Ошибка получения списка изображений:", err)
+		return
+	}
+	fmt.Println("\nСписок изображений на сервере:")
+	for _, img := range resp.Images {
+		fmt.Printf("Файл: %s | Создано: %s | Обновлено: %s\n", img.Filename, img.CreatedAt, img.UpdatedAt)
+	}
 }
 
 func downloadImage(client pb.ImageServiceClient) {
