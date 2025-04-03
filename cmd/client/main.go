@@ -80,7 +80,7 @@ func downloadImage(client pb.ImageServiceClient) {
 		return
 	}
 	image := resp.Images[0]
-	os.WriteFile("downloaded_"+image.Filename, image.Data, 0644)
+	os.WriteFile(image.Filename, image.Data, 0644)
 	fmt.Println("Скачано:", image.Filename)
 }
 
@@ -97,7 +97,7 @@ func main() {
 		fmt.Println("\nВыберите действие:")
 		fmt.Println("1.Загрузить изображения")
 		fmt.Println("2.Посмотреть список изображений")
-		fmt.Println("3.Скачать изображения")
+		fmt.Println("3.Скачать изображение")
 		fmt.Println("4.Выйти")
 		fmt.Print("Ваш выбор: ")
 
@@ -122,5 +122,6 @@ func main() {
 		default:
 			fmt.Println("Попробуйте снова")
 		}
+		wg.Wait()
 	}
 }

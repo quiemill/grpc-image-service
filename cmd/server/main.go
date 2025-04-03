@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const storageDir = "../../storage"
+const storageDir = "./storage"
 
 var (
 	uploadDownloadMax = make(chan struct{}, 10)
